@@ -1,59 +1,36 @@
-// Pseudo code for creating a PagedAttentionMask operation.
-class CreatePagedAttentionMaskOp : public OpRewritePattern<mindspore::PagedAttentionMaskOp> {
-public:
-  using OpRewritePattern::OpRewritePattern;
+static Value createPagedAttentionMaskOp(Operation *op, const ValueRange args, ArrayRef<Type> resultTypes,
+                                      PatternRewriter &rewriter) {
+  // 假设 args[0] 是掩码输入，args[1] 是注意力分数
+  Location loc = op->getLoc();
+  // 创建一个操作来应用掩码到注意力分数上，这里只是一个示例
+  // 我们使用一个条件操作来模拟掩码的效果，实际的实现可能会不同
+  auto mask = args[0];
+  auto scores = args[1];
+  auto maskedScores = rewriter.create<arith::SelectOp>(
+      loc, mask, rewriter.create<arith::ConstantOp>(loc, rewriter.getZeroAttr(resultTypes[0])), scores);
 
-  LogicalResult matchAndRewrite(mindspore::PagedAttentionMaskOp op,
-                                PatternRewriter &rewriter) const override {
-    // Get the mask and scores tensors from the operation.
-    Value mask = op.getMask();
-    Value scores = op.getScores();
-
-    // Create a new Linalg operation for the paged attention mask.
-    // This is a placeholder for the actual logic which would depend on the
-    // definition of the PagedAttentionMaskOp in the Linalg dialect.
-    auto maskedScores = rewriter.create<linalg::PagedAttentionMaskOp>(
-        op.getLoc(), scores.getType(), mask, scores);
-
-    // Replace the original operation's result with the new Linalg operation's result.
-    rewriter.replaceOp(op, maskedScores);
-    return success();
-  }
-};
-
-// Pseudo code for creating a PagedAttention operation.
-class CreatePagedAttentionOp : public OpRewritePattern<mindspore::PagedAttentionOp> {
-public:
-  using OpRewritePattern::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(mindspore::PagedAttentionOp op,
-                                PatternRewriter &rewriter) const override {
-    // Get the necessary inputs for the paged attention operation (query, key, value).
-    Value query = op.getQuery();
-    Value key = op.getKey();
-    Value value = op.getValue();
-
-    // Additional attributes such as block size, page size, etc., should be retrieved from the operation.
-
-    // Create a new Linalg operation for the paged attention.
-    // This is a placeholder for the actual logic which would depend on the
-    // definition of the PagedAttentionOp in the Linalg dialect.
-    auto output = rewriter.create<linalg::PagedAttentionOp>(
-        op.getLoc(), query.getType(), query, key, value);
-
-    // Replace the original operation's result with the new Linalg operation's result.
-    rewriter.replaceOp(op, output);
-    return success();
-  }
-};
-
-// Function to populate the conversion patterns with the new PagedAttention patterns.
-void mlir::populateLowerMindSporePagedAttentionPattern(RewritePatternSet &patterns) {
-  patterns.add<CreatePagedAttentionMaskOp, CreatePagedAttentionOp>(patterns.getContext());
+  return maskedScores;
 }
 
-// In the pass, use the new function to add patterns.
-void mlir::ConvertMindSporeToLinalgPass::runOnOperation() {
-  // ... existing code ...
+static Value createPagedAttentionOp(Operation *op, const ValueRange args, ArrayRef<Type> resultTypes,
+                                   PatternRewriter &rewriter) {
+  Location loc = op->getLoc();
+  // 假设 args 是一系列的键（key）、值（value）对，以及可能的其他参数
+  // 这里只是一个示例实现，实际的分页注意力机制会更复杂
+  auto query = args[0]; // 查询张量
+  auto key = args[1];   // 键张量
+  auto value = args[2]; // 值张量
 
-  // Ad
+  // 这里我们使用点乘来计算注意力分数，实际的注意力机制可能包含更多的步骤
+  auto scores = rewriter.create<arith::MulFOp>(loc, resultTypes, query, key);
+
+  // 应用 softmax 来获取注意力权重
+  auto softmaxOp = rewriter.create<math::SoftmaxOp>(loc, resultTypes, scores);
+
+  // 使用注意力权重来加权值张量
+  auto weightedSum = rewriter.create<arith::MulFOp>(loc, resultTypes, softmaxOp, value);
+
+  // 这里可能还需要对 weightedSum 进行某种形式的变换或重构以适应分页注意力的输出
+  // 由于具体细节未知，我们假设它直接返回即可
+  return weightedSum;
+}
