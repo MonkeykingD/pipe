@@ -1,0 +1,46 @@
+//===----------------------------------------------------------------------===//
+// MindSpore Operator: PagedAttention
+//===----------------------------------------------------------------------===//
+def MindSpore_PagedAttentionOp : MindSpore_Op<"paged_attention", [Pure]> {
+  let summary = "Apply paged attention mechanism.";
+
+  let description = [{
+    Applies paged attention mechanism on input tensors. The implementation details
+    are specific to the operation and are not described here.
+  }];
+
+  let arguments = (ins
+    MindSpore_Tensor:$query,               // Query tensor
+    MindSpore_Tensor:$key,                 // Key tensor
+    MindSpore_Tensor:$value,               // Value tensor
+    MindSpore_Tensor:$block_table,         // Block table for indexing
+    MindSpore_Tensor:$sequence_lengths,    // Lengths of the sequences
+    I64Attr:$head_size,                    // Size of each attention head
+    I64Attr:$block_size                   // Size of each block
+  );
+
+  let results = (outs
+    MindSpore_Tensor:$output              // Output tensor after attention
+  );
+}
+
+//===----------------------------------------------------------------------===//
+// MindSpore Operator: PagedAttentionMask
+//===----------------------------------------------------------------------===//
+def MindSpore_PagedAttentionMaskOp : MindSpore_Op<"paged_attention_mask", [Pure]> {
+  let summary = "Apply mask to paged attention mechanism.";
+
+  let description = [{
+    Applies a mask to the paged attention mechanism to prevent future data from 
+    being used in the attention calculation. This is useful for causal attention.
+  }];
+
+  let arguments = (ins
+    MindSpore_Tensor:$mask,                // Attention mask tensor
+    MindSpore_Tensor:$attention_scores    // Attention scores before masking
+  );
+
+  let results = (outs
+    MindSpore_Tensor:$masked_scores       // Masked attention scores
+  );
+}
