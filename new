@@ -1,0 +1,59 @@
+// Pseudo code for creating a PagedAttentionMask operation.
+class CreatePagedAttentionMaskOp : public OpRewritePattern<mindspore::PagedAttentionMaskOp> {
+public:
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mindspore::PagedAttentionMaskOp op,
+                                PatternRewriter &rewriter) const override {
+    // Get the mask and scores tensors from the operation.
+    Value mask = op.getMask();
+    Value scores = op.getScores();
+
+    // Create a new Linalg operation for the paged attention mask.
+    // This is a placeholder for the actual logic which would depend on the
+    // definition of the PagedAttentionMaskOp in the Linalg dialect.
+    auto maskedScores = rewriter.create<linalg::PagedAttentionMaskOp>(
+        op.getLoc(), scores.getType(), mask, scores);
+
+    // Replace the original operation's result with the new Linalg operation's result.
+    rewriter.replaceOp(op, maskedScores);
+    return success();
+  }
+};
+
+// Pseudo code for creating a PagedAttention operation.
+class CreatePagedAttentionOp : public OpRewritePattern<mindspore::PagedAttentionOp> {
+public:
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mindspore::PagedAttentionOp op,
+                                PatternRewriter &rewriter) const override {
+    // Get the necessary inputs for the paged attention operation (query, key, value).
+    Value query = op.getQuery();
+    Value key = op.getKey();
+    Value value = op.getValue();
+
+    // Additional attributes such as block size, page size, etc., should be retrieved from the operation.
+
+    // Create a new Linalg operation for the paged attention.
+    // This is a placeholder for the actual logic which would depend on the
+    // definition of the PagedAttentionOp in the Linalg dialect.
+    auto output = rewriter.create<linalg::PagedAttentionOp>(
+        op.getLoc(), query.getType(), query, key, value);
+
+    // Replace the original operation's result with the new Linalg operation's result.
+    rewriter.replaceOp(op, output);
+    return success();
+  }
+};
+
+// Function to populate the conversion patterns with the new PagedAttention patterns.
+void mlir::populateLowerMindSporePagedAttentionPattern(RewritePatternSet &patterns) {
+  patterns.add<CreatePagedAttentionMaskOp, CreatePagedAttentionOp>(patterns.getContext());
+}
+
+// In the pass, use the new function to add patterns.
+void mlir::ConvertMindSporeToLinalgPass::runOnOperation() {
+  // ... existing code ...
+
+  // Ad
