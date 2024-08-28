@@ -1,36 +1,32 @@
-static Value createPagedAttentionMaskOp(Operation *op, const ValueRange args, ArrayRef<Type> resultTypes,
-                                      PatternRewriter &rewriter) {
-  // 假设 args[0] 是掩码输入，args[1] 是注意力分数
-  Location loc = op->getLoc();
-  // 创建一个操作来应用掩码到注意力分数上，这里只是一个示例
-  // 我们使用一个条件操作来模拟掩码的效果，实际的实现可能会不同
-  auto mask = args[0];
-  auto scores = args[1];
-  auto maskedScores = rewriter.create<arith::SelectOp>(
-      loc, mask, rewriter.create<arith::ConstantOp>(loc, rewriter.getZeroAttr(resultTypes[0])), scores);
+class MindsporePagedAttentionOpConverter : public OpRewritePattern<mindspore::PagedAttentionOp> {
+public:
+  using OpRewritePattern::OpRewritePattern;
 
-  return maskedScores;
-}
+  LogicalResult matchAndRewrite(PagedAttentionOp op, typename PagedAttentionOp::Adaptor adaptor,
+                                ConversionPatternRewriter &rewriter) const override {
+    // 获取输入矩阵A和B，它们将被相乘
+    Value q = adaptor.getQ();
+    Value k = adaptor.getK();
+    Value v = adaptor.getV();
 
-static Value createPagedAttentionOp(Operation *op, const ValueRange args, ArrayRef<Type> resultTypes,
-                                   PatternRewriter &rewriter) {
-  Location loc = op->getLoc();
-  // 假设 args 是一系列的键（key）、值（value）对，以及可能的其他参数
-  // 这里只是一个示例实现，实际的分页注意力机制会更复杂
-  auto query = args[0]; // 查询张量
-  auto key = args[1];   // 键张量
-  auto value = args[2]; // 值张量
+    auto transposeK = false;
+    if (adaptor.getTransposeKAttr()) {
+      transposeK = adaptor.getTransposeKAttr().getValue();
+    }    
+    // 进行矩阵乘法 Q * K
+    auto matmulOp1 = rewriter.create<linalg::MatmulOp>(
+        op.getLoc(), q, k, 
+        rewriter.getBoolAttr(/*transposeQ=*/false), 
+        rewriter.getBoolAttr(transposeK));
+    // 对结果应用 softmax 操作
+    auto softmaxOp = rewriter.create<linalg::SoftmaxOp>(op.getLoc(), matmulOp1);
 
-  // 这里我们使用点乘来计算注意力分数，实际的注意力机制可能包含更多的步骤
-  auto scores = rewriter.create<arith::MulFOp>(loc, resultTypes, query, key);
+    // 将 softmax 后的乘积与矩阵 V 相乘
+    auto matmulOp2 = rewriter.create<linalg::MatmulOp>(op.getLoc(), softmaxOp, v);
 
-  // 应用 softmax 来获取注意力权重
-  auto softmaxOp = rewriter.create<math::SoftmaxOp>(loc, resultTypes, scores);
+    // 替换原始操作
+    rewriter.replaceOp(op, matmulOp2);
 
-  // 使用注意力权重来加权值张量
-  auto weightedSum = rewriter.create<arith::MulFOp>(loc, resultTypes, softmaxOp, value);
-
-  // 这里可能还需要对 weightedSum 进行某种形式的变换或重构以适应分页注意力的输出
-  // 由于具体细节未知，我们假设它直接返回即可
-  return weightedSum;
-}
+    return success();
+  }
+};
